@@ -77,7 +77,8 @@ mod conditional {
     }
 
     impl Inspector {
-        pub(crate) fn new() -> Self {
+        /// Creates a new inspector instance.
+        pub fn new() -> Self {
             Self {
                 active_element: None,
                 pick_depth: Some(0.0),

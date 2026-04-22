@@ -999,6 +999,12 @@ pub struct Window {
     captured_hitbox: Option<HitboxId>,
     #[cfg(any(feature = "inspector", debug_assertions))]
     inspector: Option<Entity<Inspector>>,
+    /// When true, the inspector entity is rendered by an external window (e.g. a
+    /// floating inspector window) rather than being painted as a strip on the
+    /// right side of this window. Picking and hitbox highlighting still occur
+    /// in this window.
+    #[cfg(any(feature = "inspector", debug_assertions))]
+    inspector_floating: bool,
 }
 
 #[derive(Clone, Debug, Default)]
@@ -1606,6 +1612,8 @@ impl Window {
             captured_hitbox: None,
             #[cfg(any(feature = "inspector", debug_assertions))]
             inspector: None,
+            #[cfg(any(feature = "inspector", debug_assertions))]
+            inspector_floating: false,
         })
     }
 
@@ -2499,7 +2507,7 @@ impl Window {
         let root_size = {
             #[cfg(any(feature = "inspector", debug_assertions))]
             {
-                if self.inspector.is_some() {
+                if self.inspector.is_some() && !self.inspector_floating {
                     let mut size = self.viewport_size;
                     size.width = (size.width - _inspector_width).max(px(0.0));
                     size
@@ -2518,7 +2526,11 @@ impl Window {
         root_element.prepaint_as_root(Point::default(), root_size.into(), self, cx);
 
         #[cfg(any(feature = "inspector", debug_assertions))]
-        let inspector_element = self.prepaint_inspector(_inspector_width, cx);
+        let inspector_element = if self.inspector_floating {
+            None
+        } else {
+            self.prepaint_inspector(_inspector_width, cx)
+        };
 
         self.prepaint_deferred_draws(cx);
 
@@ -5187,10 +5199,40 @@ impl Window {
     #[cfg(any(feature = "inspector", debug_assertions))]
     pub fn toggle_inspector(&mut self, cx: &mut App) {
         self.inspector = match self.inspector {
-            None => Some(cx.new(|_| Inspector::new())),
+            None => {
+                self.inspector_floating = false;
+                Some(cx.new(|_| Inspector::new()))
+            }
             Some(_) => None,
         };
         self.refresh();
+    }
+
+    /// Toggles inspector mode in "floating" mode: this window's main content is
+    /// not shrunk, and the inspector entity is not painted here. Picking and
+    /// hitbox highlighting still happen in this window. Returns the inspector
+    /// entity when the inspector was just turned on, so the caller can render
+    /// it in a separate window. Returns `None` when toggled off.
+    #[cfg(any(feature = "inspector", debug_assertions))]
+    pub fn toggle_inspector_floating(&mut self, cx: &mut App) -> Option<Entity<Inspector>> {
+        self.inspector = match self.inspector.take() {
+            None => {
+                self.inspector_floating = true;
+                Some(cx.new(|_| Inspector::new()))
+            }
+            Some(_) => {
+                self.inspector_floating = false;
+                None
+            }
+        };
+        self.refresh();
+        self.inspector.clone()
+    }
+
+    /// Returns the inspector entity for this window, if inspector mode is on.
+    #[cfg(any(feature = "inspector", debug_assertions))]
+    pub fn inspector(&self) -> Option<&Entity<Inspector>> {
+        self.inspector.as_ref()
     }
 
     /// Returns true if the window is in inspector mode.
