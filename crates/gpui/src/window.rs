@@ -5351,23 +5351,24 @@ impl Window {
             return;
         };
         if event.downcast_ref::<MouseMoveEvent>().is_some() {
-            inspector.update(cx, |inspector, _cx| {
+            inspector.update(cx, |inspector, cx| {
                 if let Some((_, inspector_id)) =
                     self.hovered_inspector_hitbox(inspector, &self.rendered_frame)
                 {
                     inspector.hover(inspector_id, self);
+                    cx.notify();
                 }
             });
         } else if event.downcast_ref::<crate::MouseDownEvent>().is_some() {
-            inspector.update(cx, |inspector, _cx| {
+            inspector.update(cx, |inspector, cx| {
                 if let Some((_, inspector_id)) =
                     self.hovered_inspector_hitbox(inspector, &self.rendered_frame)
                 {
                     inspector.select(inspector_id, self);
+                    cx.notify();
                 }
             });
         } else if let Some(event) = event.downcast_ref::<crate::ScrollWheelEvent>() {
-            // This should be kept in sync with SCROLL_LINES in x11 platform.
             const SCROLL_LINES: f32 = 3.0;
             const SCROLL_PIXELS_PER_LAYER: f32 = 36.0;
             let delta_y = event
@@ -5375,7 +5376,7 @@ impl Window {
                 .pixel_delta(px(SCROLL_PIXELS_PER_LAYER / SCROLL_LINES))
                 .y;
             if let Some(inspector) = self.inspector.clone() {
-                inspector.update(cx, |inspector, _cx| {
+                inspector.update(cx, |inspector, cx| {
                     if let Some(depth) = inspector.pick_depth.as_mut() {
                         *depth += f32::from(delta_y) / SCROLL_PIXELS_PER_LAYER;
                         let max_depth = self.mouse_hit_test.ids.len() as f32 - 0.5;
@@ -5389,6 +5390,7 @@ impl Window {
                         {
                             inspector.set_active_element_id(inspector_id, self);
                         }
+                        cx.notify();
                     }
                 });
             }
